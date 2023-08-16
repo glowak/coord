@@ -5,3 +5,7 @@ __pycache__/
 .Python
 build/
 dist/
+
+# Project
+data/
+cache/
