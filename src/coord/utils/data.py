@@ -1,4 +1,5 @@
 import pandas as pd
+import csv
 
 from typing import Optional
 from abc import ABC, abstractmethod
@@ -50,4 +51,4 @@ class TSVInfo(Info):
     
     def export(self, 
                path: str) -> None:
-        self.table.to_csv(path, sep="\t", index=False)
+        self.table.to_csv(path, sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\n')
