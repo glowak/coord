@@ -22,7 +22,7 @@ def remove_whitespaces(data: str):
 
 def clean_parsed(dict_parsed: dict) -> tuple[dict, list]:
     '''
-    Removes all sentences that contain copyright-avoiding string "@ @ @ ..." and header tags.
+    Removes all sentences that contain copyright-avoiding string "@ @ @ ...".
     Returns a dictionary with correct sentences and list of removed sentences' ids.
     '''
 

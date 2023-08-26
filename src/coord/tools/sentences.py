@@ -55,9 +55,9 @@ def sentence_split_exporting(data_path: str,
     elif export_to == "tsv":
         tsv.export(export_path)
 
-
 def depparse_sentences(pipeline: Pipeline,
-                       data: str) -> dict:
-    
-    sentences = pipeline.posdep(data)
+                       data: str,
+                       sent = False) -> dict:
+    ''' OK '''
+    sentences = pipeline.posdep(data, is_sent=sent)
     return sentences
