@@ -10,13 +10,8 @@ import syll
 from tqdm import tqdm
 
 path = r'coca-split\mag\split_mag_1991.tsv'
-# filename = r''
-# source = path + filename
-# genre = re.search('acad|blog|fic|mag|tvm|spok|news|web', filename)
-# year = re.search('[0-9]{4}', filename)
 
 mode = 'w'
-# tok = stanza.Pipeline(lang='en', processors='tokenize', download_method=None)
 nlp = stanza.Pipeline(lang='en', processors='tokenize, lemma, mwt, pos, depparse, ner', download_method=None)
 
 
@@ -33,7 +28,7 @@ def splitter(src):
     genre = df.loc[1][2]
     year = df.loc[1][3]
     source = df.loc[1][4]
-    for x in tqdm(range(1, len(df))):
+    for x in tqdm(range(len(df))):
         if marker != df.loc[x][5] and marker != '':
             m = re.match('@@[0-9]+', marker)
             texts[m.group()] = txt
@@ -41,31 +36,10 @@ def splitter(src):
             marker = df.loc[x][5]
         elif marker != df.loc[x][5]:
             marker = df.loc[x][5]
-        sentence = clean(str(df.loc[x][1]))
-        txt += sentence + '\n\n'
+        df.iloc[x].replace(to_replace=df.loc[x][1], value=clean(str(df.loc[x][1])))
+        txt += df.loc[x][1] + '\n\n'
 
-    return texts, genre, year, source
-
-
-# def remove_sentences(txt):
-#     """
-#     removes the sentences with series of @
-#     :param txt: text to clean
-#     :return: clean text
-#     """
-#     doc = tok(txt)
-#     to_remove = []
-#     for sent in doc.sentences:
-#         if '@ @' in sent.text:
-#             to_remove.append(sent.index)
-#     to_remove.reverse()
-#     for sent_id in to_remove:
-#         doc.sentences.remove(doc.sentences[sent_id])
-#
-#     cln = ''
-#     for sent in doc.sentences:
-#         cln += sent.text+' '
-#     return cln
+    return texts, genre, year, source, df
 
 
 def clean(txt):
@@ -218,18 +192,22 @@ def coord_info(crd, sent, conj, other_ids):
     return txt_ids
 
 
-def extract_coords(src, marker, conll_list, sentence_count):
+def extract_coords(src, marker, conll_list, sentence_count, src_table):
     """
     finds coordinations in a given text, creates a conllu file containing every sentence with a found coordination
     :param src: text to parse
     :param marker: marker of the parsed text
     :param conll_list: list for sentences, to later create a conllu file corresponding to the table of coordinations
-    :param sentence_count: how many sentences have been processed already in the whole source file
+    :param sentence_count: counts how many sentences from the whole source file have been parsed
+    :param src_table: table with parsed sentences to track the sentence number
     :return: list of dictionaries representing coordinations
     """
     doc = nlp(src)
     coordinations = []
-    for sent in doc.sentences:
+    for stanza_id, sent in enumerate(doc.sentences):
+        index = stanza_id + sentence_count
+        while sent.text not in src_table.loc[index][1]:
+            index -= 1
         dep_children(sent)
 
         conjs = {}
@@ -282,14 +260,14 @@ def extract_coords(src, marker, conll_list, sentence_count):
                 r_ids = coord_info(coord, sent, 'R', [])
                 coord_info(coord, sent, 'L', r_ids)
                 coord['sentence'] = sent.text
-                coord['sent_id'] = str(marker) + '-' + str(sent.index + sentence_count)
+                coord['sent_id'] = str(marker) + '-' + str(index+1)
                 coordinations.append(coord)
-    sentence_count += doc.sentences[len(doc.sentences)-1].index
+    sentence_count += len(doc.sentences)-1
     return coordinations, sentence_count
 
 
 def create_csv(crd_list):
-    path = r'C:\Users\magda\PycharmProjects\nlp310\done-csv\stanza_coordinations_' + str(genre) + '_' + str(year) + '.csv'
+    path = r'stanza_coordinations_' + str(genre) + '_' + str(year) + '.csv'
     with open(path, mode=mode, newline="") as file:
         writer = csv.writer(file)
 
@@ -340,16 +318,16 @@ def create_csv(crd_list):
 
 s = datetime.datetime.now()
 
-txts, genre, year, source = splitter(path)
+txts, genre, year, source, src_table = splitter(path)
 crds_full_list = []
 conll_list = []
 sent_count = 0
 
 for mrk in tqdm(txts.keys()):
-    coordinations, sent_count = extract_coords(txts[mrk], mrk, conll_list, sent_count)
+    coordinations, sent_count = extract_coords(txts[mrk], mrk, conll_list, sent_count, src_table)
     crds_full_list += coordinations
 
-conll_name = r'C:\Users\magda\PycharmProjects\nlp310\done-conll\coords_' + str(genre) + '_' + str(year) + '.conllu'
+conll_name = r'coords_' + str(genre) + '_' + str(year) + '.conllu'
 conll_doc = Document(conll_list)
 CoNLL.write_doc2conll(conll_doc, conll_name)
 create_csv(crds_full_list)
