@@ -71,7 +71,8 @@ def count_word(word):
     
     if word.lower() in my_d:
         return my_d[word.lower()]
-    
+    if word.lower() in d:
+        return nsyl(word)[0]
     pat1 = r"\d+s|'\d+s"
     pat2 = r"(?:\d+|\d{1,3}(?:,\d{3})*)(?:\.\d+)?(?:st|nd|rd|th)?"
     
