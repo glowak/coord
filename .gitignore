@@ -9,3 +9,7 @@ dist/
 # Project
 data/
 cache/
+
+# Other
+.idea
+.vscode
