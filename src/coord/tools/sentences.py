@@ -10,6 +10,9 @@ from coord.utils import cleaning
 def sentence_split_exporting(data_path: str,
                              export_path: str,
                              export_to: str) -> None:
+    '''
+    Split sentences and export to a specified file.
+    '''
 
     p = Pipeline("english", gpu=True)
     
@@ -58,5 +61,8 @@ def sentence_split_exporting(data_path: str,
 def depparse_sentences(pipeline: Pipeline,
                        data: str,
                        sent = False) -> dict:
+    ''' 
+    Sentences dependency parsing.
+    '''
     sentences = pipeline.posdep(data, is_sent=sent)
     return sentences

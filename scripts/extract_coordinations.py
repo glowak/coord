@@ -1,60 +1,25 @@
 import time
 import resource
+import argparse
 import torch
 import pandas as pd
 
 from trankit import Pipeline
 from tqdm import tqdm
 
-from coord.utils.data import CSVInfo
-from coord.utils import other
-from coord.tools import extract
-from coord.tools import sentences
+from coord.utils import other, cleaning, data
+from coord.tools import extract, sentences
 
-# Constant variables
-# CORPUS_PATH = "data/samples/coca-samples/text_acad_1990.txt"
-SENTENCES_PATH = "data/csv/split_acad_1992.tsv"
-TEMPLATE_PATH = "data/csv/UD_Polish-LFG.csv"
-CSV_PATH = "data/csv/trankit_split_acad_1992.csv"
-CREATE_CONLL = True
-# CSV_INFO = "data/csv/trankit_split_acad_1991.csv"
 
-def main():
-    # time counter
-    time_start = time.perf_counter()
-    # initialize the pipeline
-    eng_pipeline = Pipeline("english",
-                            gpu=True,
-                            cache_dir="cache",
-                            embedding='xlm-roberta-base')
-    # load the data
-    text = other.load_data(SENTENCES_PATH, type="tsv")
-    # sents = pd.read_csv(CSV_INFO)
-    # all_sents = sents["sent.id"].unique()
-    
-    # for i in tqdm(all_sents):
-    #     dict_sentence = sentences.depparse_sentences(eng_pipeline,
-    #                                                  text["SENT"][int(i.split("-")[1]) - 1],
-    #                                                  sent=True)
-    #     other.toconllu(dict_sentence,
-    #                    f"data/conll/conllu_conj_acad_1991.conll",
-    #                    f"{text['PARA ID'][int(i.split('-')[1])-1]}-{text['0'][int(i.split('-')[1])-1]}",
-    #                    text["SENT"][int(i.split("-")[1])-1])
-    # load the template of data
-    template = other.create_template_from_csv(TEMPLATE_PATH)
-    # create data storing object
-    info_csv = CSVInfo(template)
-
+def parse_and_add_info_tsv(text, pipeline, create_conll, csv_file):
     for i in tqdm(range(0, len(text))):
         # empty cuda memory after every iteration
         torch.no_grad()
         torch.cuda.empty_cache()
         genre = text["FILE"][i].split("_")[1].split(".")[0]
-        # create placeholder dict for storing a sentence
-        # (in order to not change the code)
         placeholder_dict = {"sentences": []} 
-        # parse sentences
-        dict_sentence = sentences.depparse_sentences(eng_pipeline,
+        sentences = text["SENT"][i]
+        dict_sentence = sentences.depparse_sentences(pipeline,
                                                      text["SENT"][i],
                                                      sent=True)
         # get id from sentences tsv
@@ -64,29 +29,95 @@ def main():
         # select only these sentences that have coordinations
         conj_depparsed, selected_ids = extract.select_conj(placeholder_dict)
         # create conllu docs
-        if CREATE_CONLL and len(selected_ids) > 0:
+        if create_conll and len(selected_ids) > 0:
             other.toconllu(conj_depparsed,
-                           f"data/conll/conllu_conj_{genre}-another.conll",
-                           f"{text['PARA ID'][i]}-{text['0'][i]}",
-                           text["SENT"][i])
+                            f"data/conll/conllu_conj_{genre}-another.conll",
+                            f"{text['PARA ID'][i]}-{text['0'][i]}",
+                            text["SENT"][i])
 
         extract.conj_info_extraction(conj_depparsed)
 
-        # Adding info
-        for sentence in conj_depparsed["sentences"]:
-            extract.search_for_dependencies(sentence)
-            for key in sentence["coordination_info"]:
-                # add row to info object
-                info_csv.add_row(extract.addline(
-                    sentence["coordination_info"][key],
-                    sentence,
-                    text["FILE"][i],
-                    genre,
-                    f"{text['PARA ID'][i]}-{text['0'][i]}"
-                ))
+    # Adding info
+    for sentence in conj_depparsed["sentences"]:
+        extract.search_for_dependencies(sentence)
+        for key in sentence["coordination_info"]:
+            # add row to info object
+            csv_file.add_row(extract.addline(
+                sentence["coordination_info"][key],
+                sentence,
+                text["FILE"][i],
+                genre,
+                f"{text['PARA ID'][i]}-{text['0'][i]}"
+            ))
     # export info object
-    info_csv.export(CSV_PATH)
+    csv_file.export(f"trankit_split_{genre}_{text['YEAR'][1]}.csv")   
 
+
+def parse_and_add_info_txt(text, pipeline, create_conll, csv_file, filename):
+    for i in tqdm(0, len(text)):
+        torch.no_grad()
+        torch.cuda.empty_cache()
+        genre = filename.split("_")[1]
+        text[i] = cleaning.clean_text(text[i])
+        dict_sentences = sentences.depparse_sentences(pipeline,
+                                                      text[i],
+                                                      sent=False)
+        clean_sentences, _ = cleaning.clean_parsed(dict_sentences)
+        sent_id = extract.search_for_id(clean_sentences)
+        conj_sentences, _ = extract.select_conj(clean_sentences)
+        for sent in conj_sentences["sentences"]:
+            sent["text"] = cleaning.remove_whitespaces(sent["text"])
+        extract.conj_info_extraction(conj_sentences)
+    
+    for sentence in conj_sentences["sentences"]:
+        extract.search_for_dependencies(sentence)
+        for key in sentence["coordination_info"]:
+            # add row to info object
+            csv_file.add_row(extract.addline(
+                sentence["coordination_info"][key],
+                sentence,
+                filename,
+                genre,
+                f"{sent_id}-{int(sentence['id']) - 1}"
+            ))
+    # export info object
+    csv_file.export(f"trankit_split_{genre}_{filename.split('_')[2]}.csv")   
+        
+
+def main(file_path, use_gpu, create_conll):
+    torch.no_grad()
+    torch.cuda.empty_cache()
+    info_csv = data.CSVInfo(cols=[
+        "governor.position", "governor.word", "governor.tag",
+        "governor.pos", "governor.ms", "conjunction.word",
+        "conjunction.tag", "conjunction.pos", "conjunction.ms",
+        "no.conjuncts", "L.conjunct", "L.dep.label",
+        "L.head.word", "L.head.tag", "L.head.pos",
+        "L.head.ms", "L.words", "L.tokens",
+        "L.syllables", "L.chars", "R.conjunct",
+        "R.dep.label", "R.head.word", "R.head.tag",
+        "R.head.pos", "R.head.ms", "R.words",
+        "R.tokens", "R.syllables", "R.chars", 
+        "sentence", "sent.id", "genre",
+        "converted.from.file"])
+    # time counter
+    time_start = time.perf_counter()
+    # initialize the pipeline
+    eng_pipeline = Pipeline("english",
+                            gpu=use_gpu,
+                            cache_dir="cache",
+                            embedding='xlm-roberta-base')
+    if file_path.split(".")[-1] == "txt":
+        text = other.load_data(file_path, type="txt")
+        parse_and_add_info_txt(text, eng_pipeline, 
+                               create_conll, info_csv, file_path)
+    elif file_path.split(".")[-1] == "tsv":
+        text = other.load_data(file_path, type="tsv")
+        parse_and_add_info_tsv(text, eng_pipeline, create_conll, info_csv) 
+    else:
+        raise TypeError("Unknown type of input file, should be"
+                        "either .txt or .tsv")
+    
     # Time and resources
     time_elapsed = (time.perf_counter() - time_start)
     memMb = resource.getrusage(
@@ -95,4 +126,23 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    argument_parser = argparse.ArgumentParser(
+        description="Extract coordination info from corpora or sentence files",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    argument_parser.add_argument("-f", 
+                                 "--files",
+                                 nargs="+",
+                                 type=str,
+                                 help="input files to parse")
+    argument_parser.add_argument("-g",
+                                 "--gpu",
+                                 action="store_true",
+                                 help="use gpu for parsing")
+    argument_parser.add_argument("-c",
+                                 "--conll",
+                                 action="store_true",
+                                 help="generate conll file")
+    args = argument_parser.parse_args()
+
+    for file in args.files:
+        main(file, args.gpu, args.conll)

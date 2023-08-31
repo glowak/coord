@@ -41,7 +41,7 @@ def select_conj(dict_parsed: dict) -> tuple[dict, list[int]]:
 
 def conj_info_extraction(dict_parsed: dict) -> None:  
     ''' 
-    
+    Extract information about coordinations from a dictionary.
     '''
     for sentence in dict_parsed["sentences"]:
         sentence["coordination_info"] = {}
@@ -132,29 +132,51 @@ def conj_info_extraction(dict_parsed: dict) -> None:
                         sentence["coordination_info"].pop(k2)
         
 
-def get_children(id_list, sentence):
-        for child in id_list:
-            for t in sentence["tokens"][child - 1]["children"]:
-                id_list.append(t["id"])
+def get_children(id_list: list[int], 
+                 sentence: dict) -> None:
+    ''' 
+    Get children of all tokens with id's on the list.
+    '''
+    for child in id_list:
+        for t in sentence["tokens"][child - 1]["children"]:
+            id_list.append(t["id"])
 
 
-def match_conjuncts(conj_match, sentence, current_conj, id_list, side):
+def match_conjuncts(conj_match: re.Match, 
+                    sentence: dict, 
+                    current_conj: int, 
+                    id_list: list[int], 
+                    side: str) -> None:
+    ''' 
+    Tries to match a certain string of tokens to actual text, creating a
+    left and right conjuncts texts for certain coordination.
+    '''
     if conj_match != None:
         sentence["coordination_info"][current_conj][f"{side}_text"] = conj_match.group(0)
     else:
         sentence["coordination_info"][current_conj][f"{side}_text"] = sentence["tokens"][id_list[0] - 1]["text"]
         for i in range(0, len(id_list) - 3):
-            pattern = re.escape(sentence["tokens"][id_list[i] - 1]["text"]) + r"(\s*)" + re.escape(sentence["tokens"][id_list[i + 1] - 1]["text"])
+            pattern = (re.escape(sentence["tokens"][id_list[i] - 1]["text"]) 
+                       + r"(\s*)" 
+                       + re.escape(sentence["tokens"][id_list[i + 1] - 1]["text"]))
             match_text = re.search(pattern, sentence["text"])
             if match_text != None:
                 sentence["coordination_info"][current_conj][f"{side}_text"] += match_text.group(1)
-            # else:
-                # sentence["coordination_info"][current_conj][f"{side}_text"] += " "
             
             sentence["coordination_info"][current_conj][f"{side}_text"] += sentence["tokens"][id_list[i + 1] - 1]["text"]
 
 
-def count_and_find_conjs(id_list, sentence, current_conj, side):
+def count_and_find_conjs(id_list: list[int],
+                         sentence: dict,
+                         current_conj: int, 
+                         side: str) -> re.Match | None:
+    '''
+    Counts all the tokens, syllables and words in conjuncts. Creates a regular
+    expression containing all tokens in conjuncts with spaces between them.
+    
+    Returns a re.Match object if this particular string is in the whole sentence
+    or None if there is no match found.
+    '''
     side_tokens = f"{side}tokens"
     side_syll = f"{side}syllables"
     side_words = f"{side}words"
@@ -169,6 +191,9 @@ def count_and_find_conjs(id_list, sentence, current_conj, side):
 
 def search_for_dependencies(sentence: dict) -> None:
     '''
+    Goes through all coordinations, seeking all their dependencies and 
+    extracts all relevant info.
+
     Przerobiony kod od Magdy
     '''
     for con in sentence["coordination_info"]:

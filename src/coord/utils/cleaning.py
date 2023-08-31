@@ -2,10 +2,17 @@ import re
 
 
 def clean_text(text: str) -> str:
+    ''' 
+    Remove tags and strings "@!" from text.
+    '''
     text_sub = re.sub(r'<p>|<h>|@!',"", text)
     return text_sub
 
-def remove_whitespaces(data: str):
+
+def remove_whitespaces(data: str) -> str:
+    ''' 
+    Remove all whitespaces between punctuation marks and contractions.
+    '''
     patterns = [
         (r'"\s*([^"]*?)\s*"', r'"\1"'),
         (r"\b(\w+)\s+'(\w+)\b", lambda match: match.group(1) + "'" + match.group(2)),
@@ -19,6 +26,7 @@ def remove_whitespaces(data: str):
         data = re.sub(pattern, replacement, data)
     
     return data
+
 
 def clean_parsed(dict_parsed: dict) -> tuple[dict, list]:
     '''

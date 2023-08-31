@@ -4,6 +4,7 @@ import csv
 from typing import Optional
 from abc import ABC, abstractmethod
 
+
 class Info(ABC):
     ''' 
     An abstract class representing a pandas DataFrame with information.
@@ -11,7 +12,8 @@ class Info(ABC):
     def __init__(self,
                  template: Optional[pd.DataFrame] = None,
                  cols: Optional[list] = None):
-        assert template is not None or cols is not None, "columns or template must be specified"
+        assert template is not None or cols is not None, "columns or template \
+            must be specified"
         
         if template is not None:
             self.table = pd.DataFrame(columns=template.columns)
@@ -27,6 +29,7 @@ class Info(ABC):
                path: str) -> None:
         pass
 
+
 class CSVInfo(Info):
     '''
     A class representing a .csv document with information.
@@ -40,6 +43,7 @@ class CSVInfo(Info):
                path: str) -> None:
         self.table.to_csv(path, index=False)
         
+
 class TSVInfo(Info):
     '''
     A class representing a .tsv document with information.
@@ -51,4 +55,8 @@ class TSVInfo(Info):
     
     def export(self, 
                path: str) -> None:
-        self.table.to_csv(path, sep="\t", index=False, quoting=csv.QUOTE_NONE, escapechar='\n')
+        self.table.to_csv(path, 
+                          sep="\t", 
+                          index=False, 
+                          quoting=csv.QUOTE_NONE, 
+                          escapechar='\n')
