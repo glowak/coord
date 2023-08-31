@@ -1,5 +1,5 @@
 import re
-from collections import OrderedDict
+
 from coord.tools.syllables import count_word
 
 
@@ -11,29 +11,12 @@ def select_conj(dict_parsed: dict) -> tuple[dict, list[int]]:
     and token children.
 
     Returns a dictionary and a list of selected sentences' ids.
-
-    OK
     '''
-    # Useful variables declaration
+
     selected_dict = {}
     selected_dict["sentences"] = []
     selected_ids = []
-    '''
-    For every sentence in the dictionary:
-    a) create keys:
-        i. create "dependencies" key storing all the tokens dependencies
-                    USELESS/REMOVED
-        ii. create "words_cconj" key storing all words that join conjuncts      
-                    USELESS/REMOVED
-    b) for every token in the sentence:
-        i. count the number of coordinations by looking at the 'conj' deprel
-        ii. create "children" key storing id and deprel of every child of 
-            the current token 
-        iii. create "all_deprels" key storing deprels that go out of the 
-                current token
-        iv. if the deprel of any token in sentence is equal to 'conj', add as 
-                selected
-    '''
+
     for sentence in dict_parsed["sentences"]:
         for token in sentence["tokens"]:
             token["conj_count"] = 0
@@ -58,21 +41,7 @@ def select_conj(dict_parsed: dict) -> tuple[dict, list[int]]:
 
 def conj_info_extraction(dict_parsed: dict) -> None:  
     ''' 
-    PROBLEM: flat and complex coordinations
     
-    For every sentence in dictionary:
-        a) in a sentence:
-            i. create "coordination_info" key with all the information about 
-                    coordinations
-            ii. count all 'conj' edges in sentence
-        b) for every token in a sentence:
-            i. if deprel is equal to 'conj' and there were 0 conj edges: 
-                - set the left head to the first token that has a conj deprel 
-                        (head of first conjunct)
-                - go through children of the left head and check if there are 
-                        more conj deprels
-                    = if there are more than two conjuncts, choose the last one                         
-                                                                WRONG/FIX THIS
     '''
     for sentence in dict_parsed["sentences"]:
         sentence["coordination_info"] = {}
@@ -202,7 +171,6 @@ def search_for_dependencies(sentence: dict) -> None:
     '''
     Przerobiony kod od Magdy
     '''
-
     for con in sentence["coordination_info"]:
         # Lists of tokens' ids' in conjuncts
         left_list = []
@@ -210,8 +178,8 @@ def search_for_dependencies(sentence: dict) -> None:
         # Lists of tokens' deprels in conjuncts
         left_deprels = []
         right_deprels = []
-        # Append conjunct tokens that are directly connected to the left and right 
-        # heads of conjuncts to left and right lists 
+        # Append conjunct tokens that are directly connected to the left and 
+        # right heads of conjuncts to left and right lists 
         for child in sentence["coordination_info"][con]["left_head_token"]["children"]:
             if (sentence["tokens"][child["id"] - 1]["deprel"] != "conj"   # don't add tokens with 'conj' deprel
                 and child["id"] < sentence["coordination_info"][con]["right_head_token"]["id"]):
@@ -236,14 +204,18 @@ def search_for_dependencies(sentence: dict) -> None:
 
         # Remove certain tokens from lists 
         for id in left_list[:]:
+                # remove punctuation
             if ((id == min(left_list) and sentence["tokens"][id - 1]["text"] in [",", ";", "-"])
                 or (id == max(left_list) and sentence["tokens"][id - 1]["text"] in [",", "."])
+                # remove every token on the left of left conjunct if the 
+                # right conjunct doesn't have the same deprels somewhere
                 or (id < sentence["coordination_info"][con]["left_head_token"]["id"]
-                    and sentence["tokens"][id - 1]["deprel"] not in right_deprels    # remove every token on the left of left conjunct if the right conjunct doesn't have the same deprels somewhere
-                    and min(left_list) >= id)): # ???
+                    and sentence["tokens"][id - 1]["deprel"] not in right_deprels    
+                    and min(left_list) >= id)):
                 left_list.remove(id)
         for id in right_list[:]:
-            if ((id == min(right_list) and sentence["tokens"][id - 1]["text"] == ",")      # remove a comma on the beginning of the right conjunct
+                # remove a comma on the beginning or end the right conjunct
+            if ((id == min(right_list) and sentence["tokens"][id - 1]["text"] == ",")     
                 or (id == max(right_list) and sentence["tokens"][id - 1]["text"] == ",")):
                 right_list.remove(id)
 
@@ -260,13 +232,14 @@ def search_for_dependencies(sentence: dict) -> None:
         left_match = count_and_find_conjs(left_list, sentence, con, "L")
         
         # Get the variables and save to dictionary
-        # MAY BE AN EASIER WAY TO DO
         match_conjuncts(right_match, sentence, con, right_list, "right") 
         match_conjuncts(left_match, sentence, con, left_list, "left") 
 
 
 def search_for_id(dict_parsed: dict) -> re.Match[str]:
     '''
+    Matches a string with line id.
+    
     Returns a matched string with line id from the corpus.
     '''
     match = re.search(r"@@\d*", dict_parsed["text"])
@@ -279,6 +252,10 @@ def addline(conj: dict,
             genre: str, 
             sent_id: str
     ) -> dict:
+    ''' 
+    Generates a line with relevant information that can be appended 
+    to a .csv file.
+    '''
     line = {"governor.position": conj["governor_dir"],
             "governor.word": conj["governor_text"],
             "governor.tag": conj["governor_xpos"],
@@ -314,5 +291,4 @@ def addline(conj: dict,
             "genre": genre,
             "converted.from.file": file_path
 }
-
     return line

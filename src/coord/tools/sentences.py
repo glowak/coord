@@ -13,7 +13,6 @@ def sentence_split_exporting(data_path: str,
 
     p = Pipeline("english", gpu=True)
     
-    
     document = load_data(data_path)
     if export_to == "csv":
         csv = CSVInfo(cols=["sentence", "id_trankit", "id_global"])
@@ -32,7 +31,8 @@ def sentence_split_exporting(data_path: str,
             if export_to == "csv":
                 csv.add_row({"sentence": sentence["text"],
                              "id_trankit": sentence["id"],
-                             "id_global": "{}-{}".format(search_for_id(split), str(sentence["id"] - 1))
+                             "id_global": "{}-{}".format(search_for_id(split), 
+                                                         str(sentence["id"] - 1))
                              })
             elif export_to == "txt":
                 file.write(sentence["text"] + "\n")
@@ -58,6 +58,5 @@ def sentence_split_exporting(data_path: str,
 def depparse_sentences(pipeline: Pipeline,
                        data: str,
                        sent = False) -> dict:
-    ''' OK '''
     sentences = pipeline.posdep(data, is_sent=sent)
     return sentences

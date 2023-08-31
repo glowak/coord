@@ -1,5 +1,6 @@
 import pandas as pd
 import csv
+
 from trankit import trankit2conllu
 
 
@@ -17,7 +18,12 @@ def create_template_from_csv(columns_info_path: str) -> pd.DataFrame:
     return template
 
 def toconllu(parsed_data: dict, 
-             filename: str) -> None:
+             filename: str,
+             id,
+             sent) -> None:
     conllu_doc = trankit2conllu(parsed_data)
-    with open(filename, "w") as file:
+    with open(filename, "a") as file:
+        file.write(f"# ID : {id}\n")
+        file.write(f"# SENTENCE : {sent}\n")
         file.write(conllu_doc)
+        file.write("\n")
