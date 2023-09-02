@@ -15,6 +15,12 @@ classifiers = [
 	"Programming Language :: Python :: 3",
 	"Operating System :: OS Independent",
 ]
+dependencies = [
+	"trankit",
+ 	"pandas",
+  	"torch",
+   	"tqdm",
+]
 
 [project.urls]
 "Homepage" = ""
