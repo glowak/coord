@@ -11,4 +11,4 @@ data/
 cache/
 
 # Other
-.vscode/*
+.vscode

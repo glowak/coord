@@ -18,9 +18,9 @@ def parse_and_add_info_tsv(text, pipeline, create_conll, csv_file):
         torch.cuda.empty_cache()
         genre = text["FILE"][i].split("_")[1].split(".")[0]
         placeholder_dict = {"sentences": []} 
-        sentences = text["SENT"][i]
+        sent = cleaning.remove_whitespaces(text["SENT"][i])
         dict_sentence = sentences.depparse_sentences(pipeline,
-                                                     text["SENT"][i],
+                                                     sent,
                                                      sent=True)
         # get id from sentences tsv
         dict_sentence["id"] = text["0"][i]
@@ -31,45 +31,50 @@ def parse_and_add_info_tsv(text, pipeline, create_conll, csv_file):
         # create conllu docs
         if create_conll and len(selected_ids) > 0:
             other.toconllu(conj_depparsed,
-                            f"data/conll/conllu_conj_{genre}-another.conll",
-                            f"{text['PARA ID'][i]}-{text['0'][i]}",
-                            text["SENT"][i])
+                           f"conllu_conj_{genre}_{str(int(text['YEAR'][i]))}.conll",
+                           f"{text['PARA ID'][i]}-{str(int(text['0'][i]))}",
+                           sent)
 
         extract.conj_info_extraction(conj_depparsed)
 
-    # Adding info
-    for sentence in conj_depparsed["sentences"]:
-        extract.search_for_dependencies(sentence)
-        for key in sentence["coordination_info"]:
-            # add row to info object
-            csv_file.add_row(extract.addline(
-                sentence["coordination_info"][key],
-                sentence,
-                text["FILE"][i],
-                genre,
-                f"{text['PARA ID'][i]}-{text['0'][i]}"
-            ))
+        # Adding info
+        for sentence in conj_depparsed["sentences"]:
+            extract.search_for_dependencies(sentence)
+            for key in sentence["coordination_info"]:
+                # add row to info object
+                csv_file.add_row(extract.addline(
+                    sentence["coordination_info"][key],
+                    sentence,
+                    text["FILE"][i],
+                    genre,
+                    f"{text['PARA ID'][i]}-{str(int(text['0'][i]))}"
+                ))
     # export info object
-    csv_file.export(f"trankit_split_{genre}_{text['YEAR'][1]}.csv")   
+    csv_file.export(f"trankit_coordinations_{genre}_{str(int(text['YEAR'][1]))}.csv")   
 
 
 def parse_and_add_info_txt(text, pipeline, create_conll, csv_file, filename):
-    for i in tqdm(0, len(text)):
+    for i in tqdm(range(1, len(text))):
         torch.no_grad()
         torch.cuda.empty_cache()
-        genre = filename.split("_")[1]
+        genre = filename.split("_")[-2]
+        year = filename.split("_")[-1].split('.')[0]
         text[i] = cleaning.clean_text(text[i])
         dict_sentences = sentences.depparse_sentences(pipeline,
                                                       text[i],
                                                       sent=False)
         clean_sentences, _ = cleaning.clean_parsed(dict_sentences)
         sent_id = extract.search_for_id(clean_sentences)
-        conj_sentences, _ = extract.select_conj(clean_sentences)
-        for sent in conj_sentences["sentences"]:
-            sent["text"] = cleaning.remove_whitespaces(sent["text"])
+        conj_sentences, selected_ids = extract.select_conj(clean_sentences)
         extract.conj_info_extraction(conj_sentences)
     
     for sentence in conj_sentences["sentences"]:
+        sentence["text"] = cleaning.remove_whitespaces(sentence["text"])
+        if create_conll and len(selected_ids) > 0:
+            other.toconllu(conj_sentences,
+                           f"conllu_conj_{genre}_{year}.conll",
+                           f"{sent_id}-{int(sentence['id']) - 1}",
+                           sentence["text"])
         extract.search_for_dependencies(sentence)
         for key in sentence["coordination_info"]:
             # add row to info object
@@ -81,7 +86,7 @@ def parse_and_add_info_txt(text, pipeline, create_conll, csv_file, filename):
                 f"{sent_id}-{int(sentence['id']) - 1}"
             ))
     # export info object
-    csv_file.export(f"trankit_split_{genre}_{filename.split('_')[2]}.csv")   
+    csv_file.export(f"trankit_coordinations_{genre}_{year}.csv")   
         
 
 def main(file_path, use_gpu, create_conll):
